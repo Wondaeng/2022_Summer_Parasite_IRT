@@ -9,7 +9,6 @@ from pycocotools.coco import COCO
 from collections import OrderedDict
 
 
-
 def get_img_names(src):  # Get list of (image) file names with extension
     file_list = [os.path.join(src, f) for f in os.listdir(src) if os.path.isfile(os.path.join(src, f))]  # Get a list of names of files in the folder
     file_list = [i.split('.') for i in file_list]
@@ -40,6 +39,19 @@ def get_names_without_ext(pth):
 
     return file_list
 
+
+def cp_imgs_with_names(names, src, dst):
+    for name in names:
+        src_pth = os.path.join(src, name)
+        dst_pth = os.path.join(dst, name)
+
+        if os.path.exists(dst):
+            shutil.rmtree(dst)
+
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+
+        shutil.copyfile(src_pth, dst_pth)
+    return None
 
 def ext_to_js(file_name_lst):
     return ['.'.join(i.split('.')[:-1]) + '.json' for i in file_name_lst]
