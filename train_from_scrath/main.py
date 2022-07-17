@@ -14,11 +14,11 @@ if __name__ == "__main__":
     model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet50', pretrained=False)
 
     dataset = custom_dataset_folder('./images_v3_classification')
-    train_loader, val_loader = split_train_test(dataset, 0.7, 1, batch_size=96)
+    train_loader, val_loader = split_train_test(dataset, 0.7, 1, batch_size=64)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.003, betas=(0.9,0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+    optimizer = optim.SGD(model.parameters(), lr=0.003, momentum=0.9)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
@@ -47,6 +47,7 @@ if __name__ == "__main__":
             if i % 20 == 19:    # print every 100 mini-batches
                 print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 20:.3f}')
                 running_loss = 0.0
+        scheduler.step(loss)
         print("lr: ", optimizer.param_groups[0]['lr'])
 
     print('Finished Training')
