@@ -20,7 +20,6 @@ def get_pos_neg_names(coco_js_pth, pos=True):  # Get names of (positive or negat
         else:  # If we need negative images
             if i["id"] not in img_id_lst:
                 img_name_lst.append(i["file_name"])
-
     return img_name_lst
 
 
