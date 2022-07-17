@@ -41,15 +41,14 @@ def get_names_without_ext(pth):
 
 
 def cp_imgs_with_names(names, src, dst):
+    if os.path.exists(dst):
+        shutil.rmtree(dst)
+
+    os.makedirs(dst, exist_ok=True)
+
     for name in names:
         src_pth = os.path.join(src, name)
         dst_pth = os.path.join(dst, name)
-
-        if os.path.exists(dst):
-            shutil.rmtree(dst)
-
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-
         shutil.copyfile(src_pth, dst_pth)
     return None
 
@@ -59,8 +58,9 @@ def ext_to_js(file_name_lst):
 def tiling_img(row, col, src, dst, names):  # Tiling images into n slices in new folder
     # Copy the folder with original (whole) images
     if os.path.exists(dst):
-        shutil.rmtree(dst)
-    shutil.copytree(src, dst)
+        return None
+    else:
+        shutil.copytree(src, dst)
 
     # Remove annotation files
     temp = os.listdir(dst)
@@ -79,13 +79,13 @@ def tiling_img(row, col, src, dst, names):  # Tiling images into n slices in new
 
         for a in range(0, row):
             for b in range(0, col):
-
                 image_sliced = image.crop((w*b, h*a, w*b + w, h*a + h))
                 extension = i.split('.')[-1]
                 name = i[:-(len(extension) + 1)]
                 slice_pth = os.path.join(dst, f'{name}_0{a+1}_0{b+1}.{extension}')
                 image_sliced.save(slice_pth)
         os.remove(file_pth)
+
     print(f'{len(names)} images are sliced! (Result in {len(os.listdir(dst))} slices)')
     return None
 
@@ -98,13 +98,12 @@ def tiling_bbox(row, col, pth_json, dst, out_name):
     new_json['annotations'] = []
     new_json['categories'] = coco.loadCats(0)  # Assume there is only one category
 
-    img_id = 0  # Image ID
-    ann_id = 1  # Annotation ID
+    img_id_temp = 0  # Image ID
+    ann_id_temp = 1  # Annotation ID
     annot_loss = 0
 
     # Iterate over original (whole) images
     for i in coco.imgs:
-
         # New height and width for sliced image
         h = coco.loadImgs(i)[0]['height'] // row
         w = coco.loadImgs(i)[0]['width'] // col
@@ -115,12 +114,13 @@ def tiling_bbox(row, col, pth_json, dst, out_name):
 
         # Give names new sliced images in form of: IMG_NAME_0A_0B.ext
         # Set fields 'id', 'height', 'width', and 'file_name'
-        for j in range(1, col + 1):
-            for k in range(1, row + 1):
+        for j in range(1, row + 1):
+            for k in range(1, col + 1):
                 slice_name = img_name + f'_0{j}_0{k}.{ext}'
-                img_id += 1
-                dct_img_temp = {"height": h, "width": w, "id": img_id, "file_name": slice_name}
+                dct_img_temp = {"height": h, "width": w, "id": img_id_temp, "file_name": slice_name}
+                img_id_temp += 1
                 new_json['images'].append(dct_img_temp)
+
 
         # Get all anotations (a list with annotations in corresponding image)
         lst_annots = coco.getAnnIds(i)
@@ -140,16 +140,23 @@ def tiling_bbox(row, col, pth_json, dst, out_name):
 
             new_bbox = [new_x1, new_y1, bbox_w, bbox_h]
             area = bbox_w * bbox_h
-            img_id = int(row * col * (i) + slice_num_a + slice_num_b * row + 1)
+            img_id_for_ann = int(row * col * (i) + slice_num_a + slice_num_b * col)
 
+            """
+            print("row, col:", row, col)
+            print("slice_num_a:", slice_num_a)
+            print(f"{row} * {col} * {i} + {slice_num_a} + {slice_num_b} * {col}")
+            print("slice_num_b:", slice_num_b)
+            print("img_id:", img_id)
+            """
             if new_x1 + bbox_w > w or new_y1 + bbox_h > h:
                 annot_loss += 1
             else:
-                new_annot = {"iscrowd": 0, "image_id": img_id,
+                new_annot = {"iscrowd": 0, "image_id": img_id_for_ann,
                              "bbox": new_bbox, "segmentation": [],
-                             "category_id": category_id, "id": ann_id, "area": area}
+                             "category_id": category_id, "id": ann_id_temp, "area": area}
                 new_json["annotations"].append(new_annot)
-                ann_id += 1
+                ann_id_temp += 1
 
     # print(json.dumps(new_json, ensure_ascii=False, indent=4))  # Print JSON file on memory
     with open(dst + f'/{out_name}', 'w') as outfile:
